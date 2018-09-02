@@ -47,7 +47,16 @@ class Market:
             True if order canceled
             False if order not canceled
         """
-        pass
+        try:
+            self.order_book.update({order.asset: self.order_book[order.asset].remove(order)})
+            return True
+        except KeyError:
+            Warning('Order not in market?. Not canceled')
+            return False
+        except:
+            Warning('Order not canceled')
+            return False
+
 
     def match_orders(self):
         pass
