@@ -71,28 +71,28 @@ class OrderBook:
         self.sell_orders = list()
 
     def __str__(self):
-        string = 'Order Book --> Asset: '+str(self.asset)+', Money Asset: '+str(self.asset_money)+'\n'
+        string = 'Order Book --> Asset: ' + str(self.asset) + ', Money Asset: ' + str(self.asset_money) + '\n'
         string += '     Buy Orders'
         for order in self.buy_orders:
-            string += '\n'+order.__str__()
+            string += '\n' + order.__str__()
         string += '\n     Sell Orders'
         for order in self.sell_orders:
-            string += '\n'+order.__str__()
+            string += '\n' + order.__str__()
         return string
 
     def add_order(self, order):
-        if order.buysell: # BUY ORDER
-            inserted=False
-            for i in range(0,len(self.buy_orders)):
+        if order.buysell:  # BUY ORDER
+            inserted = False
+            for i in range(0, len(self.buy_orders)):
                 if order.price < self.buy_orders[i].price:
                     self.buy_orders.insert(i, order)
                     inserted = True
                     break
             if not inserted:
                 self.buy_orders.append(order)
-        else:             # SELL ORDER
-            inserted=False
-            for i in range(0,len(self.sell_orders)):
+        else:  # SELL ORDER
+            inserted = False
+            for i in range(0, len(self.sell_orders)):
                 if order.price > self.sell_orders[i].price:
                     self.sell_orders.insert(i, order)
                     inserted = True
@@ -110,11 +110,48 @@ class OrderBook:
             Warning('Order was not in Order Book')
 
     def match_orders(self):
-        pass
+        pairings = list()  # paring => (buy_order, sell_order, executionprice = avg(buy_price, sell_price))
+        while self.buy_orders[0].price >= self.sell_orders[0].price:
+            buy_order = self.buy_orders[0]
+            sell_order = self.sell_orders[0]
+            if buy_order.quantity == sell_order.quantity:
+                self.buy_orders.remove(buy_order)
+                self.sell_orders.remove(sell_order)
+                buy_order.agent.orders[buy_order.asset].remove(buy_order)
+                sell_order.agent.orders[sell_order.asset].remove(sell_order)
+                pairings.append((buy_order, sell_order,
+                                 (buy_order.price + sell_order.price) / 2))
+            elif buy_order.quantity > sell_order.quantity:  # more buying than selling
+                self.buy_orders.remove(buy_order)
+                self.sell_orders.remove(sell_order)
+                buy_order.agent.orders[buy_order.asset].remove(buy_order)
+                sell_order.agent.orders[sell_order.asset].remove(sell_order)
+                new_buy_order = Order(True, buy_order.quantity - sell_order.quantity, buy_order.asset, buy_order.price,
+                                      buy_order.asset_money, buy_order.agent)
+                buy_order.agent.orders[buy_order.asset].append(new_buy_order)
+                assigned_buy_order = Order(True, sell_order.quantity, buy_order.asset, buy_order.price,
+                                           buy_order.asset_money, buy_order.agent)
+                self.buy_orders.insert(0, new_buy_order)
+                pairings.append((assigned_buy_order, sell_order, (assigned_buy_order.price + sell_order.price) / 2))
+            elif sell_order.quantity < buy_order.quantity:  # more selling than buying
+                self.buy_orders.remove(buy_order)
+                self.sell_orders.remove(sell_order)
+                buy_order.agent.orders[buy_order.asset].remove(buy_order)
+                sell_order.agent.orders[sell_order.asset].remove(sell_order)
+                new_sell_order = Order(False, sell_order.quantity - buy_order.quantity, sell_order.asset,
+                                       sell_order.price, sell_order.asset_money, sell_order.agent)
+                sell_order.agent.orders[sell_order.asset].append(new_sell_order)
+                assigned_sell_order = Order(False, buy_order.quantity, sell_order.asset, sell_order.price,
+                                            sell_order.asset_money, sell_order.agent)
+                self.sell_orders.insert(0, new_sell_order)
+                pairings.append((buy_order, assigned_sell_order, (buy_order.price + assigned_sell_order.price) / 2))
+            if len(self.buy_orders) == 0 or len(self.sell_orders) == 0:
+                break
+        return pairings
 
 
 class Order:
-    def __init__(self, buysell, asset_money, price, asset, quantity, agent):
+    def __init__(self, buysell, quantity, asset, price, asset_money, agent):
         self.buysell = buysell
         self.asset_money = asset_money
         self.price = price
@@ -142,7 +179,7 @@ class Agent:
         return self.name
 
     def place_order(self, market, buysell, quantity, asset, price, asset_money):
-        order = Order(buysell, asset_money, price, asset, quantity, self)
+        order = Order(buysell, quantity, asset, price, asset_money, self)
         if self.check_order(order):
             acknowledgment = market.acknowledge_place_order(order)
             if acknowledgment is True:
@@ -158,8 +195,8 @@ class Agent:
                 if order.asset in self.orders:
                     for pend_order in self.orders[order.asset]:
                         if pend_order.buysell:
-                            pending_buyorders += pend_order.price*pend_order.quantity
-                if order.price * order.quantity > self.portfolio[order.asset_money]-pending_buyorders:
+                            pending_buyorders += pend_order.price * pend_order.quantity
+                if order.price * order.quantity > self.portfolio[order.asset_money] - pending_buyorders:
                     return False  # Not enough money
             else:
                 return False
@@ -168,8 +205,9 @@ class Agent:
                 pending_sellorders = 0
                 if order.asset in self.orders:
                     for pend_order in self.orders[order.asset]:
-                        pending_sellorders += pend_order.quantity
-                if order.quantity > self.portfolio[order.asset]-pending_sellorders:
+                        if not pend_order.buysell:
+                            pending_sellorders += pend_order.quantity
+                if order.quantity > self.portfolio[order.asset] - pending_sellorders:
                     return False  # Not enough asset to sell
             else:
                 return False
@@ -209,10 +247,13 @@ if __name__ == '__main__':
 
     money.print_state()
     shares.print_state()
-    agent1.place_order(nyse, True, 10, shares, 10, money)
-    agent1.place_order(nyse, True, 10, shares, 10, money)
+    agent1.place_order(nyse, False, 10, shares, 10, money)
     agent1.print_state()
-    agent2.place_order(nyse, False, 10, shares, 10, money)
+    agent2.place_order(nyse, True, 10, shares, 10, money)
     print()
     agent1.print_orders()
+    nyse.print_order_books()
+
+    nyse.order_books[shares, money].match_orders()
+
     nyse.print_order_books()
