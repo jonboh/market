@@ -147,17 +147,18 @@ class Agent:
             acknowledgment = market.acknowledge_place_order(order)
             if acknowledgment is True:
                 if (market, asset) in self.orders:
-                    self.orders.update({(market, asset): self.orders[(market, asset)].append(order)})
+                    self.orders.update({asset: self.orders[asset].append(order)})
                 else:  # create new entry for (market, asset) in orders dictionary
-                    self.orders.update({(market, asset): [order]})
+                    self.orders.update({asset: [order]})
 
     def check_order(self, order):
         if order.buysell:  # BUY ORDER
             if order.asset_money in self.portfolio:
                 pending_buyorders = 0
-                for order in self.orders:
-                    if order.buysell:
-                        pending_buyorders += order.price*order.quantity
+                if order.asset in self.orders:
+                    for pend_order in self.orders[order.asset]:
+                        if pend_order.buysell:
+                            pending_buyorders += pend_order.price*pend_order.quantity
                 if order.price * order.quantity > self.portfolio[order.asset_money]-pending_buyorders:
                     return False  # Not enough money
             else:
@@ -165,8 +166,9 @@ class Agent:
         else:  # SELL ORDER
             if order.asset in self.portfolio:
                 pending_sellorders = 0
-                for order in self.orders:
-                    pending_sellorders += order.quantity
+                if order.asset in self.orders:
+                    for pend_order in self.orders[order.asset]:
+                        pending_sellorders += pend_order.quantity
                 if order.quantity > self.portfolio[order.asset]-pending_sellorders:
                     return False  # Not enough asset to sell
             else:
@@ -188,12 +190,12 @@ class Agent:
     def print_orders(self):
         print('Agent: ' + str(self.name))
         print('     Orders:')
-        for market_asset, order_list in self.orders.items():
+        for asset, order_list in self.orders.items():
             separator = '\n            '
             orders_str = separator
             for order in order_list:
                 orders_str += order.__str__() + separator
-            print('         ({0},{1}): {2}'.format(market_asset[0].name, market_asset[1].name, orders_str))
+            print('         {0}: {1}'.format(asset.name, orders_str))
 
 
 if __name__ == '__main__':
@@ -208,7 +210,7 @@ if __name__ == '__main__':
     money.print_state()
     shares.print_state()
     agent1.place_order(nyse, True, 10, shares, 10, money)
-    agent1.place_order(nyse, True, 10, shares, 10, eur)
+    agent1.place_order(nyse, True, 10, shares, 10, money)
     agent1.print_state()
     agent2.place_order(nyse, False, 10, shares, 10, money)
     print()
