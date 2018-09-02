@@ -105,10 +105,14 @@ class Agent:
             if order.asset_money in self.portfolio:
                 if order.price * order.quantity > self.portfolio[order.asset_money]:
                     return False  # Not enough money
+            else:
+                return False
         else:  # SELL ORDER
             if order.asset in self.portfolio:
                 if order.quantity > self.portfolio[order.asset]:
                     return False  # Not enough asset to sell
+            else:
+                return False
         return True
 
     def cancel_order(self, market, order):
@@ -139,10 +143,12 @@ if __name__ == '__main__':
     agent1 = Agent('A1')
     agent2 = Agent('A2')
     money = Money('USD', {agent1: 100, agent2: 200})
+    eur = Money('EUR', {agent2: 200})
     shares = Asset('Shares', {agent1: 10, agent2: 0})
     money.print_state()
     shares.print_state()
     agent1.place_order(nyse, True, 10, shares, 10, money)
+    agent1.place_order(nyse, True, 10, shares, 10, eur)
     agent1.print_state()
     agent2.place_order(nyse, False, 10, shares, 10, money)
     print()
