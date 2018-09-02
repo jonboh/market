@@ -55,8 +55,24 @@ class Market:
             Warning('Order not canceled')
             return False
 
-    def match_orders(self):
-        pass
+    def execute_orders(self):
+        for (asset, asset_money), order_book in self.order_books.items():
+            pairings = order_book._match_orders()
+            for pairing in pairings:
+                buy_order = pairing[0]
+                sell_order = pairing[1]
+                price = pairing[2]
+                # sell_order.quantity == buy_order.quantity should always be true
+                # Update Agents
+                buy_order.agent.portfolio[asset] += buy_order.quantity
+                buy_order.agent.portfolio[asset_money] -= buy_order.quantity * price
+                sell_order.agent.portfolio[asset] -= sell_order.quantity
+                sell_order.agent.portfolio[asset_money] += sell_order.quantity * price
+                # Update Assets
+                asset.property_dict.update({buy_order.agent: buy_order.agent.portfolio[asset]})
+                asset.property_dict.update({sell_order.agent: sell_order.agent.portfolio[asset]})
+                asset_money.property_dict.update({buy_order.agent: buy_order.agent.portfolio[asset_money]})
+                asset_money.property_dict.update({sell_order.agent: sell_order.agent.portfolio[asset_money]})
 
     def print_order_books(self):
         for key, order_book in self.order_books.items():
@@ -109,7 +125,7 @@ class OrderBook:
         except ValueError:
             Warning('Order was not in Order Book')
 
-    def match_orders(self):
+    def _match_orders(self):
         pairings = list()  # paring => (buy_order, sell_order, executionprice = avg(buy_price, sell_price))
         while self.buy_orders[0].price >= self.sell_orders[0].price:
             buy_order = self.buy_orders[0]
@@ -253,7 +269,14 @@ if __name__ == '__main__':
     print()
     agent1.print_orders()
     nyse.print_order_books()
-
-    print(nyse.order_books[shares, money].match_orders())
-
+    print('Executing Orders...')
+    nyse.execute_orders()
     nyse.print_order_books()
+    print()
+    agent1.print_state()
+    print()
+    agent2.print_state()
+    print()
+    money.print_state()
+    print()
+    shares.print_state()
