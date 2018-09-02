@@ -133,7 +133,7 @@ class OrderBook:
                                            buy_order.asset_money, buy_order.agent)
                 self.buy_orders.insert(0, new_buy_order)
                 pairings.append((assigned_buy_order, sell_order, (assigned_buy_order.price + sell_order.price) / 2))
-            elif sell_order.quantity < buy_order.quantity:  # more selling than buying
+            elif sell_order.quantity > buy_order.quantity:  # more selling than buying
                 self.buy_orders.remove(buy_order)
                 self.sell_orders.remove(sell_order)
                 buy_order.agent.orders[buy_order.asset].remove(buy_order)
@@ -249,11 +249,11 @@ if __name__ == '__main__':
     shares.print_state()
     agent1.place_order(nyse, False, 10, shares, 10, money)
     agent1.print_state()
-    agent2.place_order(nyse, True, 10, shares, 10, money)
+    agent2.place_order(nyse, True, 3, shares, 10, money)
     print()
     agent1.print_orders()
     nyse.print_order_books()
 
-    nyse.order_books[shares, money].match_orders()
+    print(nyse.order_books[shares, money].match_orders())
 
     nyse.print_order_books()
