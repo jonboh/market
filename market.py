@@ -102,11 +102,13 @@ class Agent:
 
     def check_order(self, order):
         if order.buysell:  # BUY ORDER
-            if order.price * order.quantity > self.portfolio[order.asset_money]:
-                return False  # Not enough money
+            if order.asset_money in self.portfolio:
+                if order.price * order.quantity > self.portfolio[order.asset_money]:
+                    return False  # Not enough money
         else:  # SELL ORDER
-            if order.quantity > self.portfolio[order.asset]:
-                return False  # Not enough asset to sell
+            if order.asset in self.portfolio:
+                if order.quantity > self.portfolio[order.asset]:
+                    return False  # Not enough asset to sell
         return True
 
     def cancel_order(self, market, order):
@@ -142,6 +144,7 @@ if __name__ == '__main__':
     shares.print_state()
     agent1.place_order(nyse, True, 10, shares, 10, money)
     agent1.print_state()
+    agent2.place_order(nyse, False, 10, shares, 10, money)
     print()
     agent1.print_orders()
     nyse.print_order_book()
