@@ -70,6 +70,16 @@ class OrderBook:
         self.buy_orders = list()
         self.sell_orders = list()
 
+    def __str__(self):
+        string = 'Order Book --> Asset: '+str(self.asset)+', Money Asset: '+str(self.asset_money)+'\n'
+        string += '     Buy Orders'
+        for order in self.buy_orders:
+            string += '\n'+order.__str__()
+        string += '\n     Sell Orders'
+        for order in self.sell_orders:
+            string += '\n'+order.__str__()
+        return string
+
     def add_order(self, order):
         if order.buysell: # BUY ORDER
             inserted=False
@@ -99,15 +109,9 @@ class OrderBook:
         except ValueError:
             Warning('Order was not in Order Book')
 
-    def __str__(self):
-        string = 'Order Book --> Asset: '+str(self.asset)+', Money Asset: '+str(self.asset_money)+'\n'
-        string += '     Buy Orders'
-        for order in self.buy_orders:
-            string += '\n'+order.__str__()
-        string += '\n     Sell Orders'
-        for order in self.sell_orders:
-            string += '\n'+order.__str__()
-        return string
+    def match_orders(self):
+        pass
+
 
 class Order:
     def __init__(self, buysell, asset_money, price, asset, quantity, agent):
@@ -150,13 +154,20 @@ class Agent:
     def check_order(self, order):
         if order.buysell:  # BUY ORDER
             if order.asset_money in self.portfolio:
-                if order.price * order.quantity > self.portfolio[order.asset_money]:
+                pending_buyorders = 0
+                for order in self.orders:
+                    if order.buysell:
+                        pending_buyorders += order.price*order.quantity
+                if order.price * order.quantity > self.portfolio[order.asset_money]-pending_buyorders:
                     return False  # Not enough money
             else:
                 return False
         else:  # SELL ORDER
             if order.asset in self.portfolio:
-                if order.quantity > self.portfolio[order.asset]:
+                pending_sellorders = 0
+                for order in self.orders:
+                    pending_sellorders += order.quantity
+                if order.quantity > self.portfolio[order.asset]-pending_sellorders:
                     return False  # Not enough asset to sell
             else:
                 return False
