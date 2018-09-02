@@ -21,9 +21,11 @@ class Money(Asset):
 
 
 class Market:
-    def __init__(self, name):
+    def __init__(self, name, assets, assets_money):
         self.name = name
-        self.order_book = dict()
+        self.order_books = dict()
+        for asset, asset_money in zip(assets, assets_money):
+            self.order_books.update({(asset, asset_money): OrderBook(asset, asset_money)})
 
     def acknowledge_place_order(self, order):
         """
@@ -32,10 +34,8 @@ class Market:
             False if order not placed
         """
         try:
-            if order.asset in self.order_book:
-                self.order_book.update({order.asset: self.order_book[order.asset].append(order)})
-            else:
-                self.order_book.update({order.asset: [order]})
+            if (order.asset, order.asset_money) in self.order_books:
+                self.order_books[(order.asset, order.asset_money)].add_order(order)
             return True
         except:
             Warning('Order not placed')
@@ -48,28 +48,66 @@ class Market:
             False if order not canceled
         """
         try:
-            self.order_book.update({order.asset: self.order_book[order.asset].remove(order)})
+            if (order.asset, order.asset_money) in self.order_books:
+                self.order_books[(order.asset, order.asset_money)].delete_order(order)
             return True
-        except KeyError:
-            Warning('Order not in market?. Not canceled')
-            return False
         except:
             Warning('Order not canceled')
             return False
 
-
     def match_orders(self):
         pass
 
-    def print_order_book(self):
-        print(self.name + ' Order Book:')
-        for asset, orders in self.order_book.items():
-            print('     Asset: ' + str(asset))
-            separator = '\n         '
-            order_string = separator
-            for order in orders:
-                print('         {0}'.format(order.__str__()))
+    def print_order_books(self):
+        for key, order_book in self.order_books.items():
+            print(order_book)
 
+
+class OrderBook:
+    def __init__(self, asset, asset_money):
+        self.asset = asset
+        self.asset_money = asset_money
+        self.buy_orders = list()
+        self.sell_orders = list()
+
+    def add_order(self, order):
+        if order.buysell: # BUY ORDER
+            inserted=False
+            for i in range(0,len(self.buy_orders)):
+                if order.price < self.buy_orders[i].price:
+                    self.buy_orders.insert(i, order)
+                    inserted = True
+                    break
+            if not inserted:
+                self.buy_orders.append(order)
+        else:             # SELL ORDER
+            inserted=False
+            for i in range(0,len(self.sell_orders)):
+                if order.price > self.sell_orders[i].price:
+                    self.sell_orders.insert(i, order)
+                    inserted = True
+                    break
+            if not inserted:
+                self.sell_orders.append(order)
+
+    def delete_order(self, order):
+        try:
+            if order.buysell:
+                self.buy_orders.remove(order)
+            else:
+                self.sell_orders.remove(order)
+        except ValueError:
+            Warning('Order was not in Order Book')
+
+    def __str__(self):
+        string = 'Order Book --> Asset: '+str(self.asset)+', Money Asset: '+str(self.asset_money)+'\n'
+        string += '     Buy Orders'
+        for order in self.buy_orders:
+            string += '\n'+order.__str__()
+        string += '\n     Sell Orders'
+        for order in self.sell_orders:
+            string += '\n'+order.__str__()
+        return string
 
 class Order:
     def __init__(self, buysell, asset_money, price, asset, quantity, agent):
@@ -148,12 +186,14 @@ class Agent:
 
 
 if __name__ == '__main__':
-    nyse = Market('NYSE')
     agent1 = Agent('A1')
     agent2 = Agent('A2')
     money = Money('USD', {agent1: 100, agent2: 200})
     eur = Money('EUR', {agent2: 200})
     shares = Asset('Shares', {agent1: 10, agent2: 0})
+
+    nyse = Market('NYSE', [shares], [money])
+
     money.print_state()
     shares.print_state()
     agent1.place_order(nyse, True, 10, shares, 10, money)
@@ -162,4 +202,4 @@ if __name__ == '__main__':
     agent2.place_order(nyse, False, 10, shares, 10, money)
     print()
     agent1.print_orders()
-    nyse.print_order_book()
+    nyse.print_order_books()
